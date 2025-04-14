@@ -1,9 +1,7 @@
 #include <netinet/in.h>
 #include <raylib.h>
-#define DEFS
 #include <stdint.h>
 #include <pthread.h>
-#include "game.h"
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <stdio.h>
@@ -12,20 +10,35 @@
 #include <time.h>
 #include <unistd.h>
 #include <raymath.h>
+#include <signal.h>
+#define VARIABLES
+#include "game.h"
 
-#define PORT 38568
 #define BUF_SIZE 1024
-#define CLIENT_TIMEOUT 4 // seconds
+#define CLIENT_TIMEOUT 4
+#define UPD_DELAY 20000
 
 uint16_t ids = 0;
 pthread_mutex_t lock;
 Gamestate gs = {0};
+volatile sig_atomic_t stop = 0;
 
 int sockfd;
 struct sockaddr_in server_addr;
 
+void handle_sigint(int signum) {
+    stop = 1;
+}
+
 int addr_equals(struct sockaddr_in *a, struct sockaddr_in *b) {
   return a->sin_addr.s_addr == b->sin_addr.s_addr && a->sin_port == b->sin_port;
+}
+
+Vector2 rand_player_pos() {
+  return (Vector2){
+    (rand()%10000)/9999.0 * (mapW * TILE - plsize.x*2) + plsize.x, 
+    (rand()%10000)/9999.0 * (mapH * TILE - plsize.y*2) + plsize.y,
+  };
 }
 
 void bullets_create(PlayerInfo plinf, uint16_t plID) {
@@ -54,10 +67,7 @@ void bullets_shot(int *bi) {
       gs.clients[i].plinf.health -= 34;
       if (gs.clients[i].plinf.health <= 0) {
         gs.clients[i].plinf.health = 100;
-        gs.clients[i].plinf.pos = (Vector2){
-          (rand()%10000)/9999.0 * (mapW * TILE - plsize.x*2) + plsize.x, 
-          (rand()%10000)/9999.0 * (mapH * TILE - plsize.y*2) + plsize.y,
-        };
+        gs.clients[i].plinf.pos = rand_player_pos();
       }
     }
   }
@@ -78,7 +88,7 @@ void *bullets_update(void *arg) {
 
     pthread_mutex_unlock(&lock);  
 
-    usleep(2000);
+    usleep(UPD_DELAY / 2);
   }
   return NULL;
 }
@@ -125,11 +135,15 @@ void update_client(struct sockaddr_in *client_addr, UpdPlayerInfo updInfo) {
   }
 
   if (gs.clientsCnt < MAX_CLIENTS) {
-    gs.clients[gs.clientsCnt].id = ids++;
-    gs.clients[gs.clientsCnt].addr = *client_addr;
-    gs.clients[gs.clientsCnt].last_seen = now;
-    gs.clients[gs.clientsCnt].plinf.health = 100;
-    gs.clients[gs.clientsCnt++].plinf.pos = Vector2Scale((Vector2) {rand() % mapW, rand() % mapH}, TILE);
+    gs.clients[gs.clientsCnt++] = (Client){
+      .id = ids++,
+      .addr = *client_addr,
+      .last_seen = now,
+      .plinf = (PlayerInfo){
+        .health = 100,
+        .pos = rand_player_pos(),
+      },
+    };
     printf("New client added: %s:%d\n", inet_ntoa(client_addr->sin_addr),
         ntohs(client_addr->sin_port));
     return;
@@ -189,16 +203,13 @@ void *gamestate_send(void *arg) {
       sendto(sockfd, buffer, sizeof(Gamestate), 0, (struct sockaddr *)&gs.clients[i].addr, addr_len);
     }
 
-    usleep(30000);
+    usleep(UPD_DELAY);
   }
 
   return NULL;
 }
 
-int main() {
-  srand(time(0));
-  printf("Gamestate size (bytes): %zu\n", sizeof(Gamestate));
-
+void socket_initialization(char *argv[]) {
   sockfd = socket(AF_INET, SOCK_DGRAM, 0);
   if (sockfd < 0) {
     perror("Socket failed");
@@ -208,7 +219,21 @@ int main() {
   memset(&server_addr, 0, sizeof(server_addr));
   server_addr.sin_family = AF_INET;
   server_addr.sin_addr.s_addr = INADDR_ANY;
-  server_addr.sin_port = htons(PORT);
+  server_addr.sin_port = htons(atoi(argv[1]));
+}
+
+int main(int argc, char *argv[]) {
+  srand(time(0));
+  signal(SIGINT, handle_sigint);
+
+  if (argc < 1) {
+    printf("Usage: [PORT]\n");
+    exit(0);
+  }
+
+  socket_initialization(argv);
+
+  printf("Gamestate size (bytes): %zu\n", sizeof(Gamestate));
 
   if (bind(sockfd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
     perror("Bind failed");
@@ -222,20 +247,19 @@ int main() {
   pthread_t bullets_update_thread;
   pthread_t gamestate_receive_thread;
   pthread_t gamestate_send_thread;
-
-  if (pthread_mutex_init(&lock, NULL) != 0) {
-    printf("Mutex initialization error\n");
-    exit(1);
-  }
-
+  pthread_mutex_init(&lock, NULL);
   pthread_create(&bullets_update_thread, NULL, bullets_update, NULL);
   pthread_create(&gamestate_receive_thread, NULL, gamestate_receive, NULL);
   pthread_create(&gamestate_send_thread, NULL, gamestate_send, NULL);
 
-  printf("UDP server listening on port %d...\n", PORT);
+  printf("UDP server listening on port %s...\n", argv[1]);
 
-  while (1) {}
+  while (!stop) {}
 
+  printf("Closing server...\n");
+  pthread_cancel(bullets_update_thread);
+  pthread_cancel(gamestate_receive_thread);
+  pthread_cancel(gamestate_send_thread);
   pthread_mutex_destroy(&lock);
   close(sockfd);
   return 0;

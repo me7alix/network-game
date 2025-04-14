@@ -3,7 +3,7 @@
 
 #define MAX_CLIENTS 4
 #define MAX_BULLETS (MAX_CLIENTS * 5)
-#define BULLET_SPEED 1.0
+#define BULLET_SPEED 6.0
 #define BULLET_RADIUS 5
 #define PLAYER_SPEED 200
 #define TILE 24
@@ -45,7 +45,7 @@ typedef struct {
 
 #endif
 
-#ifdef DEFS
+#ifdef VARIABLES
 
 const int mapW = 30, mapH = 30;
 char map[] = 
