@@ -257,6 +257,7 @@ int main(int argc, char *argv[]) {
   while (!stop) {}
 
   printf("Closing server...\n");
+
   pthread_cancel(bullets_update_thread);
   pthread_cancel(gamestate_receive_thread);
   pthread_cancel(gamestate_send_thread);

@@ -49,7 +49,7 @@ void gamestate_draw() {
     Color clr = plcolors[gs.clients[i].id % (sizeof(plcolors) / sizeof(plcolors[0]))];
     DrawRectangleV(gs.clients[i].plinf.pos, plsize, clr);
     sprintf(buf, "%d", gs.clients[i].plinf.health);
-    DrawText(buf, gs.clients[i].plinf.pos.x, gs.clients[i].plinf.pos.y, 24, BLACK);
+    DrawText(buf, gs.clients[i].plinf.pos.x, gs.clients[i].plinf.pos.y, 24, WHITE);
   }
 
   pthread_mutex_unlock(&lock);
