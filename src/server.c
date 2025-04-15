@@ -16,7 +16,7 @@
 
 #define BUF_SIZE 1024
 #define CLIENT_TIMEOUT 4
-#define UPD_DELAY 20000
+#define UPD_DELAY 15000
 
 uint16_t ids = 0;
 pthread_mutex_t lock;
@@ -94,8 +94,13 @@ void *bullets_update(void *arg) {
 }
 
 void map_collision(PlayerInfo *plinf) {
-  for (int i = 0; i < mapH; i++) {
-    for (int j = 0; j < mapW; j++) {
+  int py = (int)(plinf->pos.y / TILE);
+  int px = (int)(plinf->pos.x / TILE);
+  int pyh = py + (int)(plsize.y / TILE);
+  int pxw = px + (int)(plsize.x / TILE);
+
+  for (int i = ((py-2) < 0 ? 0 : (py-2)); i < ((pyh+2) > mapH ? mapH : (pyh+2)); i++) {
+    for (int j = ((px-2) < 0 ? 0 : (px-2)); j < ((pxw+2) > mapW ? mapW : (pxw+2)); j++) {
       if (map[i * mapW + j] == '#') {
         Vector2 tpos = {j * TILE, i * TILE};
         if (plinf->pos.x + plsize.x > tpos.x && plinf->pos.y + plsize.y > tpos.y && 
