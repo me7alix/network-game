@@ -104,21 +104,14 @@ int main(int argc, char *argv[]) {
 
   InitWindow(mapW * TILE, mapH * TILE, "client");
   SetTargetFPS(60);
-  DisableCursor();
 
   float shootingTimer = 0.0;
   while (!WindowShouldClose()) {
     shootingTimer += GetFrameTime();
-    Vector2 mousePos = Vector2Scale(GetMousePosition(), 0.5);
-
-    if (IsKeyPressed(KEY_TAB)) {
-      if (IsCursorHidden()) EnableCursor();
-      else DisableCursor();
-    }
 
     UpdPlayerInfo upi = {get_deltapos(), (Vector2) {0}, false};
 
-    upi.sdir = mousePos;
+    upi.sdir = GetMousePosition();
 
     if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && shootingTimer > 0.5) {
       upi.isShooting = true;
@@ -134,7 +127,6 @@ int main(int argc, char *argv[]) {
 
     gamestate_draw();
     draw_map();
-    DrawCircleLinesV(mousePos, 10, WHITE);
 
     EndDrawing();
   }
