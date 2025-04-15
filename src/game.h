@@ -2,7 +2,7 @@
 #define GAMESTATE_H_
 
 #define MAX_CLIENTS 4
-#define MAX_BULLETS (MAX_CLIENTS * 5)
+#define MAX_BULLETS (MAX_CLIENTS * 4)
 #define BULLET_SPEED 6.0
 #define BULLET_RADIUS 5
 #define PLAYER_SPEED 200
